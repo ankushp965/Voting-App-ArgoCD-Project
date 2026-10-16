@@ -1,8 +1,19 @@
 #!/bin/bash
+set -e
 
-# For AMD64 / x86_64
+# Detect architecture
+ARCH=$(uname -m)
+case $ARCH in
+  x86_64) KIND_ARCH="amd64" ;;
+  aarch64|arm64) KIND_ARCH="arm64" ;;
+  *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+esac
 
-[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+echo "Detected architecture: $ARCH ($KIND_ARCH)"
+echo "Downloading Kind v0.24.0..."
+curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-${KIND_ARCH}"
 chmod +x ./kind
-sudo cp ./kind /usr/local/bin/kind
-rm -rf kind
+sudo mv ./kind /usr/local/bin/kind
+
+echo "Kind installation complete:"
+kind --version
