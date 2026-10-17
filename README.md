@@ -47,78 +47,32 @@ The HLD captures the **full end-to-end flow**: developer push → GitOps sync �
 
 ```mermaid
 flowchart TB
-    %% ===== External Actors =====
-    subgraph Actors["👥 Users & Engineers"]
-        Dev["👨‍💻 Developer"]
-        Voter["🗳️ Voter (Browser)"]
-        Ops["🛠️ DevOps Engineer"]
+    subgraph L1["📚 Source of Truth"]
+        Repo["GitHub: k8s-specifications"]
     end
 
-    %% ===== Source Control =====
-    subgraph VCS["📚 Version Control (GitHub)"]
-        Repo["📦 k8s-specifications<br/>────────────<br/>Deployments • Services<br/>ConfigMaps • Secrets"]
+    subgraph L2["🐙 GitOps Delivery"]
+        Argo["Argo CD"]
     end
 
-    %% ===== AWS Cloud =====
-    subgraph AWS["☁️ AWS Cloud (EC2 Instance)"]
-        SG["🔐 Security Group<br/>22 • 5000 • 5001 • 8443 • 9090 • 31000"]
-
-        subgraph Kind["☸️ Kind Cluster (3 Nodes)"]
-            direction TB
-
-            subgraph CP["🟦 Control Plane Node"]
-                API["K8s API Server"]
-                ETCD[("etcd")]
-                CTRL["Controller Manager<br/>& Scheduler"]
-            end
-
-            subgraph Workers["🟩 Worker Nodes (x2)"]
-                subgraph AppNS["Namespace: default"]
-                    Vote["🐍 vote<br/>(Flask)"]
-                    Result["🟢 result<br/>(Node.js + WS)"]
-                    Worker["⚙️ worker<br/>(.NET Core)"]
-                    Redis[("⚡ redis")]
-                    PG[("🐘 db (Postgres)")]
-                end
-
-                subgraph MonNS["Namespace: monitoring"]
-                    Prom["🔥 Prometheus"]
-                    Graf["📈 Grafana"]
-                    KSM["kube-state-metrics"]
-                    NE["📊 node-exporter"]
-                    AM["🚨 Alertmanager"]
-                end
-            end
-
-            subgraph ArgoNS["Namespace: argocd"]
-                ArgoServer["🐙 Argo CD Server"]
-                ArgoRepo["Repo Server"]
-                ArgoAppCtrl["Application Controller"]
-            end
-        end
+    subgraph L3["☸️ Kubernetes (Kind on AWS EC2)"]
+        direction LR
+        App["Vote • Worker • Result<br/>Redis • PostgreSQL"]
+        Obs["Prometheus • Grafana"]
     end
 
-    %% ===== Flows =====
-    Dev -->|"git push"| Repo
-    Repo -.->|"1. Poll / Webhook"| ArgoAppCtrl
-    ArgoAppCtrl -->|"2. Fetch manifests"| ArgoRepo
-    ArgoRepo -->|"3. Apply desired state"| API
-    API -->|"4. Schedule pods"| CTRL
-    CTRL -->|"5. Run workloads"| Workers
-    ArgoServer -->|"Live status"| API
+    subgraph L4["👥 Consumers"]
+        direction LR
+        Users["Voters (Browser)"]
+        Ops["DevOps Engineers"]
+    end
 
-    Voter -->|"HTTP :5000 / :5001"| SG
-    SG -->|"Ingress routing"| Vote
-    SG -->|"Ingress routing"| Result
-    Ops -->|"HTTPS :8443"| ArgoServer
-    Ops -->|"HTTP :31000"| Graf
-
-    %% ===== Telemetry =====
-    NE -->|"scrape node metrics"| Prom
-    KSM -->|"scrape k8s state"| Prom
-    AppNS -->|"cAdvisor metrics"| Prom
-    Prom -->|"PromQL datasource"| Graf
-    Prom -->|"alerts"| AM
+    Repo -->|"sync"| Argo
+    Argo -->|"deploy"| App
+    Users -->|"HTTP :5000/:5001"| App
+    App -->|"metrics"| Obs
+    Ops -->|"UI :8443 / :31000"| Argo
+    Ops -->|"UI :31000"| Obs
 ```
 
 **HLD highlights:**
